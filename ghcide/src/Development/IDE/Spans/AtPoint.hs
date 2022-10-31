@@ -186,8 +186,9 @@ gotoTypeDefinition
   -> IdeOptions
   -> HieAstResult
   -> Position
+  -> Maybe Range
   -> MaybeT m [Location]
-gotoTypeDefinition withHieDb lookupModule ideOpts srcSpans pos
+gotoTypeDefinition withHieDb lookupModule ideOpts srcSpans pos _
   = lift $ typeLocationsAtPoint withHieDb lookupModule ideOpts pos srcSpans
 
 -- | Locate the definition of the name at a given position.

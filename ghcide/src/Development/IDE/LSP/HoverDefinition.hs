@@ -36,7 +36,7 @@ hover          = request "Hover"      getAtPoint     Nothing      foundHover
 documentHighlight = request "DocumentHighlight" highlightAtPoint (List []) List
 
 references :: IdeState -> ReferenceParams -> LSP.LspM c (Either ResponseError (List Location))
-references ide (ReferenceParams (TextDocumentIdentifier uri) pos _ _ _) = liftIO $
+references ide (ReferenceParams (TextDocumentIdentifier uri) pos _ _ _ _) = liftIO $
   case uriToFilePath' uri of
     Just path -> do
       let filePath = toNormalizedFilePath' path
@@ -58,22 +58,22 @@ foundHover (mbRange, contents) =
 -- | Respond to and log a hover or go-to-definition request
 request
   :: T.Text
-  -> (NormalizedFilePath -> Position -> IdeAction (Maybe a))
+  -> (NormalizedFilePath -> Position -> Maybe Range -> IdeAction (Maybe a))
   -> b
   -> (a -> b)
   -> IdeState
   -> TextDocumentPositionParams
   -> LSP.LspM c (Either ResponseError b)
-request label getResults notFound found ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = liftIO $ do
+request label getResults notFound found ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos maybeRange) = liftIO $ do
     mbResult <- case uriToFilePath' uri of
-        Just path -> logAndRunRequest label getResults ide pos path
+        Just path -> logAndRunRequest label getResults ide pos maybeRange path
         Nothing   -> pure Nothing
     pure $ Right $ maybe notFound found mbResult
 
-logAndRunRequest :: T.Text -> (NormalizedFilePath -> Position -> IdeAction b) -> IdeState -> Position -> String -> IO b
-logAndRunRequest label getResults ide pos path = do
+logAndRunRequest :: T.Text -> (NormalizedFilePath -> Position -> Maybe Range -> IdeAction b) -> IdeState -> Position -> Maybe Range -> String -> IO b
+logAndRunRequest label getResults ide pos maybeRange path = do
   let filePath = toNormalizedFilePath' path
   logDebug (ideLogger ide) $
     label <> " request at position " <> T.pack (showPosition pos) <>
     " in file: " <> T.pack path
-  runIdeAction (T.unpack label) (shakeExtras ide) (getResults filePath pos)
+  runIdeAction (T.unpack label) (shakeExtras ide) (getResults filePath pos maybeRange)

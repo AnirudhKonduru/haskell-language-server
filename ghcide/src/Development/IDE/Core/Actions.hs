@@ -53,8 +53,8 @@ lookupMod _dbchan _hie_f _mod _uid _boot = MaybeT $ pure Nothing
 -- block waiting for the rule to be properly computed.
 
 -- | Try to get hover text for the name under point.
-getAtPoint :: NormalizedFilePath -> Position -> IdeAction (Maybe (Maybe Range, [T.Text]))
-getAtPoint file pos = runMaybeT $ do
+getAtPoint :: NormalizedFilePath -> Position -> Maybe Range -> IdeAction (Maybe (Maybe Range, [T.Text]))
+getAtPoint file pos maybeRange = runMaybeT $ do
   ide <- ask
   opts <- liftIO $ getIdeOptionsIO ide
 
@@ -82,25 +82,26 @@ usesE :: IdeRule k v => k -> [NormalizedFilePath] -> MaybeT IdeAction [(v,Positi
 usesE k = MaybeT . fmap sequence . mapM (useWithStaleFast k)
 
 -- | Goto Definition.
-getDefinition :: NormalizedFilePath -> Position -> IdeAction (Maybe [Location])
-getDefinition file pos = runMaybeT $ do
+getDefinition :: NormalizedFilePath -> Position -> Maybe Range -> IdeAction (Maybe [Location])
+getDefinition file pos _ = runMaybeT $ do
     ide@ShakeExtras{ withHieDb, hiedbWriter } <- ask
     opts <- liftIO $ getIdeOptionsIO ide
     (HAR _ hf _ _ _, mapping) <- useE GetHieAst file
     (ImportMap imports, _) <- useE GetImportMap file
     !pos' <- MaybeT (pure $ fromCurrentPosition mapping pos)
-    toCurrentLocations mapping <$> AtPoint.gotoDefinition withHieDb (lookupMod hiedbWriter) opts imports hf pos'
+    toCurrentLocations mapping <$> AtPoint.gotoDefinition withHieDb (lookupMod hiedbWriter) opts imports hf pos' 
 
-getTypeDefinition :: NormalizedFilePath -> Position -> IdeAction (Maybe [Location])
-getTypeDefinition file pos = runMaybeT $ do
+getTypeDefinition :: NormalizedFilePath -> Position -> Maybe Range -> IdeAction (Maybe [Location])
+getTypeDefinition file pos maybeRange = runMaybeT $ do
     ide@ShakeExtras{ withHieDb, hiedbWriter } <- ask
     opts <- liftIO $ getIdeOptionsIO ide
     (hf, mapping) <- useE GetHieAst file
     !pos' <- MaybeT (return $ fromCurrentPosition mapping pos)
-    toCurrentLocations mapping <$> AtPoint.gotoTypeDefinition withHieDb (lookupMod hiedbWriter) opts hf pos'
+    !maybeRange' <- MaybeT (return $ fromCurrentRange mapping <$> maybeRange)
+    toCurrentLocations mapping <$> AtPoint.gotoTypeDefinition withHieDb (lookupMod hiedbWriter) opts hf pos' maybeRange'
 
-highlightAtPoint :: NormalizedFilePath -> Position -> IdeAction (Maybe [DocumentHighlight])
-highlightAtPoint file pos = runMaybeT $ do
+highlightAtPoint :: NormalizedFilePath -> Position -> Maybe Range -> IdeAction (Maybe [DocumentHighlight])
+highlightAtPoint file pos _ = runMaybeT $ do
     (HAR _ hf rf _ _,mapping) <- useE GetHieAst file
     !pos' <- MaybeT (return $ fromCurrentPosition mapping pos)
     let toCurrentHighlight (DocumentHighlight range t) = flip DocumentHighlight t <$> toCurrentRange mapping range

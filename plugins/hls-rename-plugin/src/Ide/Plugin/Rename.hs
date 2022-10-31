@@ -61,7 +61,7 @@ descriptor recorder pluginId = mkExactprintPluginDescriptor recorder $ (defaultP
     }
 
 renameProvider :: PluginMethodHandler IdeState TextDocumentRename
-renameProvider state pluginId (RenameParams (TextDocumentIdentifier uri) pos _prog newNameText) =
+renameProvider state pluginId (RenameParams (TextDocumentIdentifier uri) pos maybeRange _prog newNameText) =
     pluginResponse $ do
         nfp <- handleUriToNfp uri
         directOldNames <- getNamesAtPos state nfp pos
